@@ -1,0 +1,43 @@
+name: Argus Telemetry Pipeline
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # Runs daily at midnight UTC
+  workflow_dispatch: # Allows you to manually trigger it from the GitHub UI
+
+jobs:
+  update-vault:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install git-crypt
+        run: sudo apt-get update && sudo apt-get install -y git-crypt
+
+      - name: Unlock Vault
+        env:
+          GIT_CRYPT_KEY_BASE64: ${{ secrets.GIT_CRYPT_KEY_BASE64 }}
+        run: |
+          echo "$GIT_CRYPT_KEY_BASE64" | base64 --decode > git-crypt-key
+          git-crypt unlock git-crypt-key
+          rm git-crypt-key # Immediately delete the key after unlocking
+
+      - name: Setup Python Engine
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Run Telemetry Extraction
+        env:
+          GITHUB_TOKEN: ${{ secrets.ARGUS_GITHUB_TOKEN }}
+        run: python collect.py
+
+      - name: Re-encrypt and Push
+        run: |
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git add traffic.db
+          # git-crypt automatically encrypts the file upon staging it
+          git commit -m "chore: daily telemetry update" || exit 0
+          git push
