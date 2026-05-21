@@ -5,6 +5,10 @@ on:
     - cron: "0 0 * * *" # Runs daily at midnight UTC
   workflow_dispatch: # Allows you to manually trigger it from the GitHub UI
 
+# CRITICAL ADDITION: Elevates the bot from Read-Only to Read/Write
+permissions:
+  contents: write
+
 jobs:
   update-vault:
     runs-on: ubuntu-latest
